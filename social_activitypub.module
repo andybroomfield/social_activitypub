@@ -1,0 +1,56 @@
+<?php
+
+/**
+ * @file
+ * Social ActivityPub module file.
+ */
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
+use Drupal\Core\Url;
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter() for \Drupal\node\NodeForm.
+ *
+ * @param $form
+ * @param \Drupal\Core\Form\FormStateInterface $form_state
+ */
+function social_activitypub_form_post_form_alter(&$form, FormStateInterface $form_state) {
+  /** @var \Drupal\Core\Entity\EntityInterface $entity */
+  $entity = $form_state->getFormObject()->getEntity();
+  if ($entity) {
+    \Drupal::service('activitypub.form_alter')->addActivityPubOutboxFormElement($form, $form_state, $entity);
+  }
+}
+
+/**
+ * Implements hook_node_view().
+ *
+ * Adds a HTTP header and a <link> tag which give the activitypub link URL.
+ */
+function social_activitypub_post_view(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display, $view_mode) {
+  if ($view_mode == 'full' && empty($entity->in_preview)) {
+    $activitypub_type_query = \Drupal::entityTypeManager()->getStorage('activitypub_type')->getQuery()->accessCheck();
+    $activitypub_type_query
+      ->condition('status', 1)
+      ->condition('plugin.configuration.target_entity_type_id', $entity->getEntityType()->id())
+      ->condition('plugin.configuration.target_bundle', $entity->bundle());
+    $enabled_activitypub_types = $activitypub_type_query->execute();
+
+    if ($enabled_activitypub_types) {
+
+      $activitypub_url = Url::fromRoute('activitypub.post.json', ['post' => $entity->id()], ['absolute' => TRUE, 'query' => [ '_format' => 'activity_json'] ])->toString();
+      $activitypub_link = [
+        '#type' => 'html_tag',
+        '#tag' => 'link',
+        '#attributes' => [
+          'rel' => 'alternate',
+          'href' => $activitypub_url,
+          'type' => "application/activity+json"
+        ],
+      ];
+      $build['#attached']['html_head'][] = [$activitypub_link, 'activitypub'];
+    }
+  }
+}

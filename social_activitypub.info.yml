@@ -1,0 +1,7 @@
+type: module
+name: 'Open Social Activitypub'
+description: 'Support Activitypub in Open Social.'
+core_version_requirement: ^9.4 || ^10
+dependencies:
+  - activitypub:activitypub
+  - social:social_post
